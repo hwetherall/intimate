@@ -5,6 +5,12 @@
  */
 
 import { supabase } from './supabase';
+import { 
+  getPassportQuestions as getStaticPassportQuestions,
+  PassportQuestion,
+  getQuestionsByCategory,
+  getCategoryLabel
+} from './passportQuestions';
 
 /**
  * Fetches a user's passport answers from the database
@@ -175,7 +181,7 @@ export const updatePassportCompletionInProfile = async (userId: string, completi
 /**
  * Fetches all passport questions from the database, or returns the default ones if not in DB
  */
-export const getPassportQuestions = async () => {
+export const getPassportQuestions = async (mode?: 'standard' | 'spicy' | 'all') => {
   try {
     console.log('Fetching passport questions');
     const { data, error } = await supabase
@@ -187,60 +193,33 @@ export const getPassportQuestions = async () => {
       console.error('Error fetching passport questions:', error);
       // Return default questions if database query fails
       console.log('Falling back to default questions');
-      return getDefaultPassportQuestions();
+      return getDefaultPassportQuestions(mode);
     }
     
     if (data && data.length > 0) {
       console.log('Successfully fetched', data.length, 'passport questions from DB');
+      // If mode is specified, filter questions by mode
+      if (mode && mode !== 'all') {
+        return data.filter(q => q.questionMode === mode);
+      }
       return data;
     }
     
     // If no questions in DB, return defaults
     console.log('No questions found in DB, using default questions');
-    return getDefaultPassportQuestions();
+    return getDefaultPassportQuestions(mode);
   } catch (err) {
     console.error('Exception in getPassportQuestions:', err);
-    return getDefaultPassportQuestions();
+    return getDefaultPassportQuestions(mode);
   }
 };
 
 /**
  * Returns default passport questions when database is not available
  */
-export const getDefaultPassportQuestions = () => {
+export const getDefaultPassportQuestions = (mode?: 'standard' | 'spicy' | 'all') => {
   console.log('Using default passport questions');
-  return [
-    {
-      id: 1,
-      text: "How comfortable are you discussing your feelings with your partner?",
-      type: "scale",
-      options: null
-    },
-    {
-      id: 2,
-      text: "What are your preferred ways to receive affection?",
-      type: "multipleChoice",
-      options: ["Physical touch", "Words of affirmation", "Quality time", "Gifts", "Acts of service"]
-    },
-    {
-      id: 3,
-      text: "What boundaries are important for you to maintain in a relationship?",
-      type: "openEnded",
-      options: null
-    },
-    {
-      id: 4,
-      text: "How important is physical intimacy to you in a relationship?",
-      type: "scale",
-      options: null
-    },
-    {
-      id: 5,
-      text: "What activities help you feel most connected to your partner?",
-      type: "openEnded",
-      options: null
-    }
-  ];
+  return getStaticPassportQuestions(mode || 'all');
 };
 
 /**
@@ -351,12 +330,20 @@ export const comparePassportAnswers = async (userId: string) => {
       questionSpecific: [] as { questionId: number, text: string, insight: string }[]
     };
     
-    // Helper function to get question category (simplified version)
+    // Helper function to get question category from the question
     const getQuestionCategory = (questionId: number) => {
-      // This is a simplified version - in a real app, you would have category data for each question
+      // Find the question in all possible questions
+      const allQuestions = getStaticPassportQuestions('all');
+      const question = allQuestions.find(q => q.id === questionId);
+      
+      if (question) {
+        return question.category;
+      }
+      
+      // Fallback to simplified version for legacy questions
       if (questionId === 1 || questionId === 5) return 'communication';
       if (questionId === 3) return 'boundaries';
-      if (questionId === 2 || questionId === 4) return 'intimacy';
+      if (questionId === 2 || questionId === 4) return 'physical';
       return 'other';
     };
     
