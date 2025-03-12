@@ -1,16 +1,30 @@
 // src/contexts/AuthContext.tsx
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase, signIn, signUp, signOut, getCurrentUser, getProfile } from '../lib/supabase';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { User, AuthChangeEvent, Session as SupabaseSession } from '@supabase/supabase-js';
+import { 
+  supabase, 
+  signIn, 
+  signUp, 
+  signOut, 
+  getCurrentUser, 
+  getProfile, 
+  updateProfile,
+  ProfileData
+} from '../lib/supabase';
 
+// Updated Profile type definition to match database schema
 type Profile = {
   id: string;
-  username?: string;
-  full_name?: string;
+  user_id: string;
+  display_name: string;  // This matches the column name in the database
   avatar_url?: string;
+  gender?: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   partner_id?: string;
   created_at?: string;
   passport_completion?: number;
+  // Adding compatibility fields as optional
+  username?: string;
+  full_name?: string;
 };
 
 type AuthContextType = {
@@ -118,7 +132,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let authListener: { subscription: { unsubscribe: () => void } } | null = null;
     
     try {
-      const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const { data: listener } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: SupabaseSession | null) => {
         setUser(session?.user || null);
         
         if (session?.user) {
@@ -200,15 +214,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!user) throw new Error('No user is logged in');
     
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update(data)
-        .eq('id', user.id);
-        
-      if (error) throw error;
+      // Log the profile update attempt with more details
+      console.log('AuthContext: Updating profile for user:', user.id, 'with full data:', data);
       
-      setProfile(prev => prev ? { ...prev, ...data } : null);
-    } catch (error) {
+      // Handle backward compatibility between full_name and display_name
+      const profileData: ProfileData = { 
+        user_id: user.id, // Ensure user_id is always set
+        ...data as any // Cast to any to bypass type checking temporarily
+      };
+      
+      // If id is not set and might be needed for RLS, set it to user.id
+      if (!profileData.id) {
+        profileData.id = user.id;
+      }
+      
+      // If full_name is provided but display_name isn't, use full_name for display_name
+      if (profileData.full_name && !profileData.display_name) {
+        profileData.display_name = profileData.full_name;
+      }
+      
+      // If display_name is provided, update full_name for backward compatibility
+      if (profileData.display_name) {
+        profileData.full_name = profileData.display_name;
+      }
+      
+      console.log('Sending profile data to API:', profileData);
+      
+      // Use the improved updateProfile function from supabase.ts
+      const { profile: updatedProfile, error } = await updateProfile(user.id, profileData);
+      
+      if (error) {
+        console.error('Error updating profile via supabase helper:', error);
+        throw error;
+      }
+      
+      if (updatedProfile) {
+        console.log('Profile updated successfully:', updatedProfile);
+        setProfile(updatedProfile);
+      } else {
+        // Still update the local state with what we have
+        console.warn('Profile update returned no profile data');
+        // Fetch the profile again to ensure we have the latest data
+        const { profile: fetchedProfile, error: fetchError } = await getProfile(user.id);
+        if (fetchError) {
+          console.error('Error fetching updated profile:', fetchError);
+          setProfile(prev => prev ? { ...prev, ...profileData } : null);
+        } else {
+          setProfile(fetchedProfile);
+        }
+      }
+    } catch (error: any) {
       console.error('Update profile error:', error);
       throw error;
     }

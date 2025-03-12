@@ -61,6 +61,8 @@ const Passport = () => {
       
       setLoading(true);
       try {
+        console.log('Loading passport data for user:', user.id, 'with profile:', profile);
+        
         // Load questions
         const fetchedQuestions = await getPassportQuestions();
         setQuestions(fetchedQuestions);
@@ -96,7 +98,7 @@ const Passport = () => {
     };
     
     loadPassportData();
-  }, [user, profile?.partner_id]);
+  }, [user, profile]);
 
   const handleStartQuestionnaire = () => {
     navigate('/questions');
@@ -218,18 +220,28 @@ const Passport = () => {
         <div className="border-t border-gray-200 dark:border-gray-700">
           <dl>
             <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 dark:bg-gray-700">
-              <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Full name</dt>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Display name</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0 dark:text-white">
-                {profile?.full_name || 'Not set'}
+                {profile?.display_name || 'Not set'}
               </dd>
             </div>
             <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 dark:bg-gray-800">
-              <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Username</dt>
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">User ID</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0 dark:text-white">
-                {profile?.username || 'Not set'}
+                {profile?.user_id || 'Not set'}
               </dd>
             </div>
             <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 dark:bg-gray-700">
+              <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Gender</dt>
+              <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0 dark:text-white">
+                {profile?.gender ? (
+                  <span className="capitalize">{profile.gender.replace('_', ' ')}</span>
+                ) : (
+                  'Not set'
+                )}
+              </dd>
+            </div>
+            <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6 dark:bg-gray-800">
               <dt className="text-sm font-medium text-gray-500 dark:text-gray-300">Partner status</dt>
               <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0 dark:text-white">
                 {profile?.partner_id ? 'Connected' : 'Not connected'}
