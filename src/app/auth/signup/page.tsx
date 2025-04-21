@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient } from '@/utils/supabase/client';
 
 const signupSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -32,13 +33,30 @@ export default function SignupPage() {
     resolver: zodResolver(signupSchema),
   });
 
+  const testSupabase = async () => {
+    const supabase = createClient();
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: "test@example.com",
+        password: "testpassword123",
+      });
+      console.log("Supabase response:", data, error);
+    } catch (err) {
+      console.error("Supabase test error:", err);
+    }
+  };
+
   const onSubmit = async (data: SignupFormData) => {
     setIsSubmitting(true);
     setError(null);
+    console.log("Attempting to sign up with:", data.email);
 
     try {
+      console.log("Calling signUp function...");
       await signUp(data.email, data.password, data.fullName);
+      console.log("Sign up successful!");
     } catch (err) {
+      console.error("Sign up error:", err);
       setError(err instanceof Error ? err.message : 'An error occurred during sign up');
     } finally {
       setIsSubmitting(false);
@@ -130,6 +148,14 @@ export default function SignupPage() {
             className="w-full py-2 px-4 bg-foreground text-background font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-foreground disabled:opacity-70"
           >
             {isSubmitting ? 'Creating Account...' : 'Sign Up'}
+          </button>
+
+          <button 
+            type="button" 
+            onClick={testSupabase}
+            className="w-full mt-2 py-2 px-4 bg-gray-200 text-gray-800 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-300"
+          >
+            Test Supabase Connection
           </button>
         </form>
 
