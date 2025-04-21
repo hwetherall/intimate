@@ -1,0 +1,103 @@
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Users table
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  full_name TEXT
+);
+
+-- Couples table to link partners
+CREATE TABLE couples (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User-couple relationship
+CREATE TABLE user_couples (
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  couple_id UUID REFERENCES couples(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, couple_id)
+);
+
+-- User preferences
+CREATE TABLE preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  preference_data JSONB NOT NULL DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Session recommendations
+CREATE TABLE sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  couple_id UUID REFERENCES couples(id) ON DELETE CASCADE,
+  recommendation_data JSONB NOT NULL,
+  status TEXT DEFAULT 'pending', -- pending, active, completed
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Session feedback
+CREATE TABLE session_feedback (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  feedback_data JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(session_id, user_id)
+);
+
+-- Question history
+CREATE TABLE question_history (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  response JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Row Level Security Policies
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE couples ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_couples ENABLE ROW LEVEL SECURITY;
+ALTER TABLE preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE session_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE question_history ENABLE ROW LEVEL SECURITY;
+
+-- User access policies
+CREATE POLICY "Users can view their own data" 
+  ON users FOR SELECT USING (auth.uid() = id);
+
+-- Partner access policies
+CREATE POLICY "Users can view partners via couples"
+  ON users FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_couples uc1
+      JOIN user_couples uc2 ON uc1.couple_id = uc2.couple_id
+      WHERE uc1.user_id = auth.uid() AND uc2.user_id = users.id
+    )
+  );
+
+-- Preferences policies
+CREATE POLICY "Users can manage their own preferences"
+  ON preferences FOR ALL USING (auth.uid() = user_id);
+
+-- Session policies
+CREATE POLICY "Couples can view their sessions"
+  ON sessions FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_couples
+      WHERE user_couples.user_id = auth.uid() AND user_couples.couple_id = sessions.couple_id
+    )
+  );
+
+-- Feedback policies
+CREATE POLICY "Users can manage their own feedback"
+  ON session_feedback FOR ALL USING (auth.uid() = user_id);
