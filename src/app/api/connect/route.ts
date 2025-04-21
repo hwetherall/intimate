@@ -4,29 +4,47 @@ import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the Supabase client with cookies for server components
-    const cookieStore = cookies();
+    // Get the authorization header
+    const authHeader = request.headers.get('Authorization');
+    
+    // Debug log
+    console.log("Auth header:", authHeader ? "Present" : "Missing");
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { error: 'Unauthorized - invalid token format' },
+        { status: 401 }
+      );
+    }
+    
+    // Extract the token
+    const token = authHeader.split('Bearer ')[1];
+    
+    // Create a Supabase client with the provided token
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
     const supabase = createClient(supabaseUrl, supabaseKey, {
-      cookies: {
-        get(name) {
-          return cookieStore.get(name)?.value;
-        },
-      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
     });
-
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    
+    // Verify the token is valid by getting the user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error("Auth error:", authError);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
+    
     // Get the current user ID
-    const userId = session.user.id;
+    const userId = user.id;
+    console.log("User ID in API:", userId);
 
     // Parse the request body
     const body = await request.json();
@@ -39,19 +57,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the partner by email
+    // Find the partner by email in our custom users table
     const { data: partnerUser, error: partnerError } = await supabase
       .from('users')
-      .select('id')
+      .select('id, email')
       .eq('email', partnerEmail)
       .single();
 
+    // If not found in custom table, throw a clear error message
     if (partnerError || !partnerUser) {
+      console.log("Partner not found in custom users table:", partnerEmail);
+      
+      // First, make sure the current user exists in the users table
+      // (This helps ensure we don't have a similar problem later)
+      const { data: currentUserCheck, error: currentUserError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle();
+        
+      if (!currentUserCheck) {
+        console.log("Current user not in custom table, adding them");
+        
+        // Get current user details
+        const { data: { user: currentUser }, error: getUserError } = await supabase.auth.getUser();
+        
+        if (currentUser) {
+          // Add current user to custom table
+          await supabase
+            .from('users')
+            .insert({
+              id: currentUser.id,
+              email: currentUser.email,
+              full_name: currentUser.user_metadata?.full_name || '',
+            });
+            
+          console.log("Added current user to custom users table");
+        }
+      }
+      
       return NextResponse.json(
-        { error: 'User with that email not found' },
+        { error: `The email ${partnerEmail} is not registered. Please ask your partner to sign up first.` },
         { status: 404 }
       );
     }
+
+    console.log("Partner lookup result:", partnerUser);
 
     // Prevent connecting to yourself
     if (userId === partnerUser.id) {
@@ -67,10 +118,18 @@ export async function POST(request: NextRequest) {
       .select('couple_id')
       .eq('user_id', userId);
 
+    if (userCoupleError) {
+      console.error("Error checking user couple:", userCoupleError);
+    }
+
     const { data: existingPartnerCouple, error: partnerCoupleError } = await supabase
       .from('user_couples')
       .select('couple_id')
       .eq('user_id', partnerUser.id);
+
+    if (partnerCoupleError) {
+      console.error("Error checking partner couple:", partnerCoupleError);
+    }
 
     if (
       (existingUserCouple && existingUserCouple.length > 0) ||
@@ -89,12 +148,22 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (coupleError || !couple) {
+    if (coupleError) {
+      console.error("Error creating couple:", coupleError);
       return NextResponse.json(
         { error: 'Failed to create couple relationship' },
         { status: 500 }
       );
     }
+
+    if (!couple) {
+      return NextResponse.json(
+        { error: 'Failed to create couple - no data returned' },
+        { status: 500 }
+      );
+    }
+
+    console.log("Created couple:", couple.id);
 
     // Add both users to the couple
     const { error: userCoupleInsertError } = await supabase
@@ -104,6 +173,14 @@ export async function POST(request: NextRequest) {
         couple_id: couple.id
       });
 
+    if (userCoupleInsertError) {
+      console.error("Error creating user couple:", userCoupleInsertError);
+      return NextResponse.json(
+        { error: 'Failed to link current user to couple' },
+        { status: 500 }
+      );
+    }
+
     const { error: partnerCoupleInsertError } = await supabase
       .from('user_couples')
       .insert({
@@ -111,13 +188,15 @@ export async function POST(request: NextRequest) {
         couple_id: couple.id
       });
 
-    if (userCoupleInsertError || partnerCoupleInsertError) {
+    if (partnerCoupleInsertError) {
+      console.error("Error creating partner couple:", partnerCoupleInsertError);
       return NextResponse.json(
-        { error: 'Failed to create user-couple relationships' },
+        { error: 'Failed to link partner to couple' },
         { status: 500 }
       );
     }
 
+    console.log("Successfully connected users");
     return NextResponse.json({
       success: true,
       message: 'Successfully connected with partner'

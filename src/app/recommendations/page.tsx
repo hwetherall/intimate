@@ -5,9 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import RecommendationCard from '@/components/RecommendationCard';
 import { RecommendationSet } from '@/lib/ai-service';
-import Link from 'next/link';
-import Image from 'next/image';
-import { ArrowPathIcon, ChevronRightIcon, HeartIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface Partner {
   id: string;
