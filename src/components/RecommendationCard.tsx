@@ -83,7 +83,7 @@ export default function RecommendationCard({ recommendation, onFeedback }: Recom
             <div className="mb-4">
               <h4 className="font-medium mb-2">Preparation Needed:</h4>
               <ul className="list-disc pl-5 text-foreground/80">
-                {recommendation.preparationNeeded.map((item, index) => (
+                {recommendation.preparationNeeded.map((item: string, index: number) => (
                   <li key={index}>{item}</li>
                 ))}
               </ul>
@@ -92,7 +92,7 @@ export default function RecommendationCard({ recommendation, onFeedback }: Recom
           
           {recommendation.tags.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
-              {recommendation.tags.map((tag, index) => (
+              {recommendation.tags.map((tag: string, index: number) => (
                 <span key={index} className="px-2 py-1 bg-foreground/5 rounded-full text-xs">
                   {tag}
                 </span>
@@ -146,7 +146,7 @@ export default function RecommendationCard({ recommendation, onFeedback }: Recom
                       className="mr-2 h-4 w-4"
                     />
                     <label htmlFor={`completed-${recommendation.id}`}>
-                      We've completed this activity
+                      We&apos;ve completed this activity
                     </label>
                   </div>
                   

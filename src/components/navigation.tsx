@@ -44,6 +44,14 @@ export default function Navigation() {
                 >
                   Preferences
                 </Link>
+                <Link
+                  href="/recommendations"
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    isActive('/recommendations') ? 'bg-foreground/10' : 'hover:bg-foreground/5'
+                  }`}
+                >
+                  Recommendations
+                </Link>
                 <button
                   onClick={() => signOut()}
                   className="px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:bg-red-50"
@@ -139,6 +147,15 @@ export default function Navigation() {
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Preferences
+                </Link>
+                <Link
+                  href="/recommendations"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    isActive('/recommendations') ? 'bg-foreground/10' : 'hover:bg-foreground/5'
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Recommendations
                 </Link>
                 <button
                   onClick={() => {
