@@ -12,6 +12,7 @@ type User = {
   id: string;
   email?: string;
   full_name?: string;
+  user_metadata?: any;
 } | null;
 
 interface AuthError {
@@ -43,7 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: session.user.id,
           email: session.user.email,
-          full_name: session.user.user_metadata?.full_name
+          full_name: session.user.user_metadata?.full_name,
+          user_metadata: session.user.user_metadata
         });
       } else {
         setUser(null);
@@ -61,7 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser({
             id: session.user.id,
             email: session.user.email,
-            full_name: session.user.user_metadata?.full_name
+            full_name: session.user.user_metadata?.full_name,
+            user_metadata: session.user.user_metadata
           });
         } else {
           setUser(null);
@@ -98,7 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: data.user ? {
         id: data.user.id,
         email: data.user.email,
-        full_name: fullName
+        full_name: fullName,
+        user_metadata: data.user.user_metadata
       } : null 
     };
   };

@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 const loginSchema = z.object({
@@ -16,6 +17,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const { signIn } = useAuth();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +34,10 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      await signIn(data.email, data.password);
+      const { error } = await signIn(data.email, data.password);
+      if (!error) {
+        router.push('/profile');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
