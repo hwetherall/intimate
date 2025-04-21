@@ -24,6 +24,14 @@ export interface Recommendation {
   tags: string[];
 }
 
+export interface RecommendationSet {
+  id?: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  recommendations: Recommendation[];
+}
+
 export const aiService = {
   /**
    * Generate personalized recommendations for a couple based on their preferences

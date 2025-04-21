@@ -25,6 +25,7 @@ type AuthContextType = {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null, user: User }>;
   signOut: () => Promise<void>;
   loading: boolean;
+  getPartner: () => Promise<any>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -106,12 +107,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const getPartner = async () => {
+    if (!user) return null;
+    
+    try {
+      // First get the user's couple relationship
+      const { data: userCouple, error: coupleError } = await supabase
+        .from('user_couples')
+        .select('couple_id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (coupleError || !userCouple) return null;
+      
+      // Then find the partner in the same couple
+      const { data: partnerRelation, error: partnerRelationError } = await supabase
+        .from('user_couples')
+        .select('user_id')
+        .eq('couple_id', userCouple.couple_id)
+        .neq('user_id', user.id)
+        .single();
+      
+      if (partnerRelationError || !partnerRelation) return null;
+      
+      // Finally get the partner's profile information
+      const { data: partnerProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', partnerRelation.user_id)
+        .single();
+      
+      if (profileError) return null;
+      
+      return partnerProfile;
+    } catch (error) {
+      console.error('Error fetching partner:', error);
+      return null;
+    }
+  };
+
   const value = {
     user,
     signIn,
     signUp,
     signOut,
     loading,
+    getPartner,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

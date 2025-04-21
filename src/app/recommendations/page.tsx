@@ -173,7 +173,7 @@ export default function RecommendationsPage() {
             
             <h3 className="text-lg font-medium mb-4">Your Personalized Recommendations</h3>
             
-            {recommendationSet.recommendations.map((recommendation) => (
+            {recommendationSet.recommendations.map((recommendation: any) => (
               <RecommendationCard
                 key={recommendation.id}
                 recommendation={recommendation}
