@@ -17,12 +17,13 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  // Auth required paths
-  const authRequiredPaths = [
-    '/profile',
-    '/profile/preferences',
-    // Add other protected routes here
-  ];
+ // Auth required paths
+const authRequiredPaths = [
+  '/profile',
+  '/profile/preferences',
+  '/recommendations',
+  // Add other protected routes here
+];
 
   // Auth pages
   const authPages = [
