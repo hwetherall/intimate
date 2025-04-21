@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import ConnectPartnerForm from '@/components/ConnectPartnerForm';
 
 export default function ProfilePage() {
   const { user, signOut, getPartner } = useAuth();
@@ -74,12 +75,6 @@ export default function ProfilePage() {
                       <p className="text-amber-700 mb-2">
                         No partner connected yet
                       </p>
-                      <Link 
-                        href="/auth/invite" 
-                        className="text-sm text-blue-600 hover:underline"
-                      >
-                        Connect with your partner →
-                      </Link>
                     </div>
                   )}
                 </div>
@@ -87,6 +82,10 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {!partner && (
+          <ConnectPartnerForm />
+        )}
 
         <div className="mb-8">
           <h2 className="text-xl font-bold mb-4">Your Preferences</h2>

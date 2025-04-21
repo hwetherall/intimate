@@ -25,8 +25,11 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null, user: User }>;
   signOut: () => Promise<void>;
-  loading: boolean;
   getPartner: () => Promise<any>;
+  sendInvite: (email: string) => Promise<string>;
+  acceptInvite: (code: string) => Promise<void>;
+  connectByEmail: (partnerEmail: string) => Promise<{ error: string | null }>;
+  loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -134,19 +137,90 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (partnerRelationError || !partnerRelation) return null;
       
-      // Finally get the partner's profile information
-      const { data: partnerProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
+      // Get the partner's user information
+      const { data: partnerUser, error: userError } = await supabase
+        .from('users')
+        .select('id, email, full_name')
         .eq('id', partnerRelation.user_id)
         .single();
       
-      if (profileError) return null;
+      if (userError || !partnerUser) return null;
       
-      return partnerProfile;
+      return partnerUser;
     } catch (error) {
       console.error('Error fetching partner:', error);
       return null;
+    }
+  };
+
+  // Function to send an invite to a partner by email
+  const sendInvite = async (email: string): Promise<string> => {
+    if (!user) throw new Error('You must be logged in to send invites');
+    
+    try {
+      // Check if the email exists in our system
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (userError) throw new Error('Error checking user existence');
+      
+      // Generate a unique invite code (using a simple implementation for testing)
+      const inviteCode = `${user.id.substring(0, 8)}-${Date.now().toString(36)}`;
+      
+      // Store the invite in the database (we would need to create an 'invites' table)
+      // For now, we'll just return the code for testing purposes
+      
+      return inviteCode;
+    } catch (error) {
+      console.error('Error sending invite:', error);
+      throw error;
+    }
+  };
+
+  // Function to accept an invite code
+  const acceptInvite = async (code: string): Promise<void> => {
+    if (!user) throw new Error('You must be logged in to accept invites');
+    
+    try {
+      // In a real implementation, we would validate the invite code
+      // and connect the users
+      // For now, we'll just simulate success
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return;
+    } catch (error) {
+      console.error('Error accepting invite:', error);
+      throw error;
+    }
+  };
+
+  // Function to connect with a partner directly by email
+  const connectByEmail = async (partnerEmail: string): Promise<{ error: string | null }> => {
+    if (!user) return { error: 'You must be logged in to connect with a partner' };
+    
+    try {
+      const response = await fetch('/api/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ partnerEmail }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { error: data.error || 'Failed to connect with partner' };
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('Error connecting with partner:', error);
+      return { error: 'An error occurred while connecting with partner' };
     }
   };
 
@@ -157,15 +231,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     loading,
     getPartner,
+    sendInvite,
+    acceptInvite,
+    connectByEmail,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}
