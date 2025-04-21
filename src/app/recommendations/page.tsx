@@ -5,6 +5,24 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import RecommendationCard from '@/components/RecommendationCard';
 import { RecommendationSet } from '@/lib/ai-service';
+import Link from 'next/link';
+import Image from 'next/image';
+import { ArrowPathIcon, ChevronRightIcon, HeartIcon, XMarkIcon } from '@heroicons/react/24/outline';
+
+interface Partner {
+  id: string;
+  email?: string;
+  full_name?: string;
+}
+
+interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  imageUrl?: string;
+  duration?: string;
+}
 
 export default function RecommendationsPage() {
   const { user, getPartner } = useAuth();
@@ -12,9 +30,10 @@ export default function RecommendationsPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [partner, setPartner] = useState<any | null>(null);
+  const [partner, setPartner] = useState<Partner | null>(null);
   const [recommendationSet, setRecommendationSet] = useState<RecommendationSet | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   
   // Fetch current recommendations on page load
   useEffect(() => {
@@ -38,6 +57,7 @@ export default function RecommendationsPage() {
           if (data.recommendations) {
             setRecommendationSet(data.recommendations);
             setSessionId(data.session?.id || null);
+            setRecommendations(data.recommendations.recommendations || []);
           }
         } else {
           console.error('Error fetching recommendations:', data.error);
@@ -70,6 +90,7 @@ export default function RecommendationsPage() {
       if (response.ok && data.success) {
         setRecommendationSet(data.recommendations);
         setSessionId(data.session?.id || null);
+        setRecommendations(data.recommendations.recommendations || []);
       } else {
         setError(data.error || 'Failed to generate recommendations');
       }
@@ -173,7 +194,7 @@ export default function RecommendationsPage() {
             
             <h3 className="text-lg font-medium mb-4">Your Personalized Recommendations</h3>
             
-            {recommendationSet.recommendations.map((recommendation: any) => (
+            {recommendationSet.recommendations.map((recommendation) => (
               <RecommendationCard
                 key={recommendation.id}
                 recommendation={recommendation}

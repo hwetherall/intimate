@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the Supabase client
-    const supabase = createServerClient();
+    // Get the Supabase client with cookies for server components
+    const cookieStore = cookies();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    });
 
     // Get user session
     const { data: { session } } = await supabase.auth.getSession();

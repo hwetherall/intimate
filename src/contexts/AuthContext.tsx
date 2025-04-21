@@ -12,7 +12,7 @@ type User = {
   id: string;
   email?: string;
   full_name?: string;
-  user_metadata?: any;
+  user_metadata?: Record<string, unknown>;
 } | null;
 
 interface AuthError {
@@ -20,12 +20,18 @@ interface AuthError {
   status?: number;
 }
 
+interface Partner {
+  id: string;
+  email?: string;
+  full_name?: string;
+}
+
 type AuthContextType = {
   user: User;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null, user: User }>;
   signOut: () => Promise<void>;
-  getPartner: () => Promise<any>;
+  getPartner: () => Promise<Partner | null>;
   sendInvite: (email: string) => Promise<string>;
   acceptInvite: (code: string) => Promise<void>;
   connectByEmail: (partnerEmail: string) => Promise<{ error: string | null }>;
@@ -114,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const getPartner = async () => {
+  const getPartner = async (): Promise<Partner | null> => {
     if (!user) return null;
     
     try {
@@ -159,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       // Check if the email exists in our system
-      const { data: existingUser, error: userError } = await supabase
+      const { error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('email', email)
@@ -181,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Function to accept an invite code
-  const acceptInvite = async (code: string): Promise<void> => {
+  const acceptInvite = async (inviteCode: string): Promise<void> => {
     if (!user) throw new Error('You must be logged in to accept invites');
     
     try {

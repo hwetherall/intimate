@@ -5,9 +5,15 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import ConnectPartnerForm from '@/components/ConnectPartnerForm';
 
+interface Partner {
+  id: string;
+  email?: string;
+  full_name?: string;
+}
+
 export default function ProfilePage() {
   const { user, signOut, getPartner } = useAuth();
-  const [partner, setPartner] = useState<any | null>(null);
+  const [partner, setPartner] = useState<Partner | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -53,7 +59,7 @@ export default function ProfilePage() {
               <div className="flex-1">
                 <div className="mb-4">
                   <p className="text-sm text-foreground/60">Full Name</p>
-                  <p className="font-medium">{user?.user_metadata?.full_name || 'Not provided'}</p>
+                  <p className="font-medium">{user?.full_name || 'Not provided'}</p>
                 </div>
                 <div className="mb-4">
                   <p className="text-sm text-foreground/60">Email</p>
