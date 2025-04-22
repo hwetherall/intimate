@@ -8,8 +8,23 @@ export async function middleware(request: NextRequest) {
     const res = NextResponse.next();
     const supabase = createMiddlewareClient({ req: request, res });
     
+    // Get auth token from header for debugging
+    const authHeader = request.headers.get('Authorization');
+    console.log("Middleware - Auth Header:", authHeader ? "Present" : "Missing");
+    
+    // Check cookie authentication
+    const hasCookieAuth = request.cookies.has('supabase-auth-token');
+    console.log("Middleware - Cookie Auth:", hasCookieAuth ? "Present" : "Missing");
+    
     // Refresh session if expired - required for server components
     const { data: { session } } = await supabase.auth.getSession();
+    console.log("Middleware - Session:", session ? "Found" : "Not found");
+    
+    if (session) {
+      // Log when the token expires
+      const expiresAt = session.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'unknown';
+      console.log(`Middleware - Token expires at: ${expiresAt}`);
+    }
     
     // Get the pathname from the request
     const { pathname } = request.nextUrl;
@@ -38,6 +53,11 @@ export async function middleware(request: NextRequest) {
 
     // For API routes, just let the API handle the auth check
     if (apiPaths.some(path => pathname.startsWith(path))) {
+      // For API paths, add authorization if token exists
+      if (session) {
+        // Add session user ID to a custom header so API can use it
+        res.headers.set('X-Supabase-User-ID', session.user.id);
+      }
       return res;
     }
 

@@ -8,12 +8,23 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Create the Supabase client with localStorage for cookie storage
-const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
+const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    storageKey: 'supabase-auth-token',
     persistSession: true,
     autoRefreshToken: true,
-  },
+    storage: {
+      getItem: (key) => {
+        if (typeof window === 'undefined') return null;
+        return localStorage.getItem(key);
+      },
+      setItem: (key, value) => {
+        if (typeof window !== 'undefined') localStorage.setItem(key, value);
+      },
+      removeItem: (key) => {
+        if (typeof window !== 'undefined') localStorage.removeItem(key);
+      }
+    }
+  }
 });
 
 type User = {

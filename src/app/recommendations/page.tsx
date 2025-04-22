@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import RecommendationCard from '@/components/RecommendationCard';
 import { RecommendationSet } from '@/lib/ai-service';
+import { createBrowserClient } from '@/lib/supabase';
 
 interface Partner {
   id: string;
@@ -40,24 +41,40 @@ export default function RecommendationsPage() {
         const partnerData = await getPartner();
         setPartner(partnerData);
         
-        // Fetch current recommendations
+        // Get fresh token
+        const supabase = createBrowserClient();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        
+        if (!token) {
+          console.error("No access token available");
+          setError("Authentication error - please try signing in again");
+          setLoading(false);
+          return;
+        }
+        
+        console.log("Fetching recommendations with token:", token.substring(0, 10) + "...");
+        
+        // Fetch current recommendations with authorization header
         const response = await fetch('/api/recommendations', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
+          credentials: 'include', // Include cookies
         });
         
-        const data = await response.json();
+        const responseData = await response.json();
         
-        if (response.ok && data.success) {
-          if (data.recommendations) {
-            setRecommendationSet(data.recommendations);
-            setSessionId(data.session?.id || null);
-            setRecommendations(data.recommendations.recommendations || []);
+        if (response.ok && responseData.success) {
+          if (responseData.recommendations) {
+            setRecommendationSet(responseData.recommendations);
+            setSessionId(responseData.session?.id || null);
+            setRecommendations(responseData.recommendations.recommendations || []);
           }
         } else {
-          console.error('Error fetching recommendations:', data.error);
+          console.error('Error fetching recommendations:', responseData.error);
         }
       } catch (error) {
         console.error('Error in recommendations page:', error);
@@ -75,21 +92,36 @@ export default function RecommendationsPage() {
       setGenerating(true);
       setError(null);
       
+      // Get fresh token
+      const supabase = createBrowserClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
+      if (!token) {
+        setError("Authentication error - please try signing in again");
+        setGenerating(false);
+        return;
+      }
+      
+      console.log("Generating recommendations with token:", token.substring(0, 10) + "...");
+      
       const response = await fetch('/api/recommendations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
+        credentials: 'include', // Include cookies
       });
       
-      const data = await response.json();
+      const responseData = await response.json();
       
-      if (response.ok && data.success) {
-        setRecommendationSet(data.recommendations);
-        setSessionId(data.session?.id || null);
-        setRecommendations(data.recommendations.recommendations || []);
+      if (response.ok && responseData.success) {
+        setRecommendationSet(responseData.recommendations);
+        setSessionId(responseData.session?.id || null);
+        setRecommendations(responseData.recommendations.recommendations || []);
       } else {
-        setError(data.error || 'Failed to generate recommendations');
+        setError(responseData.error || 'Failed to generate recommendations');
       }
     } catch (error) {
       console.error('Error generating recommendations:', error);
@@ -108,11 +140,23 @@ export default function RecommendationsPage() {
     if (!sessionId) return;
     
     try {
+      // Get fresh token
+      const supabase = createBrowserClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
+      if (!token) {
+        console.error("No access token available for feedback");
+        return;
+      }
+      
       const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
+        credentials: 'include', // Include cookies
         body: JSON.stringify({
           sessionId,
           feedbackData: {
@@ -123,10 +167,10 @@ export default function RecommendationsPage() {
         }),
       });
       
-      const data = await response.json();
+      const responseData = await response.json();
       
       if (!response.ok) {
-        console.error('Error submitting feedback:', data.error);
+        console.error('Error submitting feedback:', responseData.error);
       }
     } catch (error) {
       console.error('Error submitting feedback:', error);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createServerClient } from '@/lib/supabase-server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
@@ -57,8 +58,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use the server client for database operations
+    const serverClient = createServerClient();
+
     // Find the partner by email in our custom users table
-    const { data: partnerUser, error: partnerError } = await supabase
+    const { data: partnerUser, error: partnerError } = await serverClient
       .from('users')
       .select('id, email')
       .eq('email', partnerEmail)
@@ -70,7 +74,7 @@ export async function POST(request: NextRequest) {
       
       // First, make sure the current user exists in the users table
       // (This helps ensure we don't have a similar problem later)
-      const { data: currentUserCheck, error: currentUserError } = await supabase
+      const { data: currentUserCheck, error: currentUserError } = await serverClient
         .from('users')
         .select('id')
         .eq('id', userId)
@@ -84,7 +88,7 @@ export async function POST(request: NextRequest) {
         
         if (currentUser) {
           // Add current user to custom table
-          await supabase
+          await serverClient
             .from('users')
             .insert({
               id: currentUser.id,
@@ -113,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if either user is already in a couple
-    const { data: existingUserCouple, error: userCoupleError } = await supabase
+    const { data: existingUserCouple, error: userCoupleError } = await serverClient
       .from('user_couples')
       .select('couple_id')
       .eq('user_id', userId);
@@ -122,7 +126,7 @@ export async function POST(request: NextRequest) {
       console.error("Error checking user couple:", userCoupleError);
     }
 
-    const { data: existingPartnerCouple, error: partnerCoupleError } = await supabase
+    const { data: existingPartnerCouple, error: partnerCoupleError } = await serverClient
       .from('user_couples')
       .select('couple_id')
       .eq('user_id', partnerUser.id);
@@ -142,7 +146,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a new couple
-    const { data: couple, error: coupleError } = await supabase
+    const { data: couple, error: coupleError } = await serverClient
       .from('couples')
       .insert({})
       .select()
@@ -166,7 +170,7 @@ export async function POST(request: NextRequest) {
     console.log("Created couple:", couple.id);
 
     // Add both users to the couple
-    const { error: userCoupleInsertError } = await supabase
+    const { error: userCoupleInsertError } = await serverClient
       .from('user_couples')
       .insert({
         user_id: userId,
@@ -181,7 +185,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: partnerCoupleInsertError } = await supabase
+    const { error: partnerCoupleInsertError } = await serverClient
       .from('user_couples')
       .insert({
         user_id: partnerUser.id,
