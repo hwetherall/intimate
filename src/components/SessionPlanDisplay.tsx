@@ -75,7 +75,9 @@ export default function SessionPlanDisplay({ plan }: SessionPlanDisplayProps) {
   const spiciness = spicinessMap[plan.spiciness_level] || plan.spiciness_level;
   const duration = durationMap[plan.duration] || plan.duration;
 
-  const totalMinutes = planData.sections.reduce((acc, section) => acc + (section.durationMinutes || 0), 0);
+  const totalMinutes = planData.sections && Array.isArray(planData.sections) 
+    ? planData.sections.reduce((acc, section) => acc + (section.durationMinutes || 0), 0)
+    : 0;
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -108,7 +110,7 @@ export default function SessionPlanDisplay({ plan }: SessionPlanDisplayProps) {
         </div>
 
         <div className="space-y-6 mb-8">
-          {planData.sections.map((section, index) => (
+          {planData.sections && Array.isArray(planData.sections) && planData.sections.map((section, index) => (
             <div key={section.id} className="border border-foreground/10 rounded-lg overflow-hidden">
               <div className="bg-foreground/5 p-4 border-b border-foreground/10">
                 <div className="flex justify-between items-center">

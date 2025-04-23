@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBrowserClient } from '@/lib/supabase';
 import ScenarioSelector from './ScenarioSelector';
+import { apiCall } from '@/lib/api-helpers';
 
 type Question = {
   id: string;
@@ -68,66 +69,109 @@ export default function SessionPlanningWizard({
   // Fetch scenarios when spiciness changes
   useEffect(() => {
     const fetchScenarios = async () => {
-      if (!spiciness || step !== 2) return;
-      
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
+        if (!spiciness || step !== 2 || loading) return;
         
-        if (!token) {
-          setError('Authentication error - please try signing in again');
-          setLoading(false);
-          return;
-        }
+        setLoading(true);
+        setError(null);
         
-        // Make API call to get scenarios
-        const response = await fetch('/api/session-plan/questions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            spiciness,
-            duration,
-            isScenarioRequest: true
-          }),
-          credentials: 'include'
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.success) {
-          setScenarios(data.scenarios || []);
-          if (data.coachPersonality) {
-            setCoachPersonality(data.coachPersonality);
+        try {
+          console.log("Attempting to fetch scenarios");
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData.session?.access_token;
+          
+          if (!token) {
+            setError('Authentication error - please try signing in again');
+            setLoading(false);
+            return;
           }
-        } else {
-          setError(data.error || 'Failed to load scenarios');
+          
+          console.log("Using token:", token.substring(0, 10) + "...");
+          
+          // Test with a simple body first
+          const response = await fetch('/api/session-plan/questions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              spiciness,
+              duration,
+              isScenarioRequest: true
+            }),
+            credentials: 'include'
+          });
+          
+          console.log("Response status:", response.status);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Error response:", errorText);
+            throw new Error(`API error: ${response.status} ${errorText}`);
+          }
+          
+          const data = await response.json();
+          console.log("Response data:", data);
+          
+          // Use fallback scenarios for now
+          setScenarios([
+            {
+              id: "romantic_dinner",
+              title: "Romantic Dinner Evening",
+              description: "Create a special dinner experience with your favorite foods, candlelight, and intimate conversation prompts."
+            },
+            {
+              id: "sensory_exploration", 
+              title: "Sensory Exploration",
+              description: "Engage all five senses through a guided experience with blindfolds, different textures, scents, tastes, and sounds."
+            },
+            {
+              id: "fantasy_fulfillment",
+              title: "Fantasy Roleplay",
+              description: "Share and explore a mutual fantasy in a comfortable, consensual setting that respects both partners' boundaries."
+            }
+          ]);
+        } catch (error) {
+          console.error('Error fetching scenarios:', error);
+          setError('An error occurred while loading scenarios');
+          
+          // Provide fallback scenarios so the app doesn't break
+          setScenarios([
+            {
+              id: "romantic_dinner",
+              title: "Romantic Dinner Evening",
+              description: "Create a special dinner experience with your favorite foods, candlelight, and intimate conversation prompts."
+            },
+            {
+              id: "sensory_exploration", 
+              title: "Sensory Exploration",
+              description: "Engage all five senses through a guided experience with blindfolds, different textures, scents, tastes, and sounds."
+            },
+            {
+              id: "fantasy_fulfillment",
+              title: "Fantasy Roleplay",
+              description: "Share and explore a mutual fantasy in a comfortable, consensual setting that respects both partners' boundaries."
+            }
+          ]);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Error fetching scenarios:', error);
-        setError('An error occurred while loading scenarios');
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
     
     fetchScenarios();
   }, [spiciness, step, supabase]);
 
   // Fetch questions when needed
-  useEffect(() => {
+ // Find this useEffect in your SessionPlanningWizard.tsx
+useEffect(() => {
     const fetchQuestions = async () => {
-      if ((step !== 3 && step !== 4) || loading) return;
+      if ((step !== 3 && step !== 4) || loading || questions.length > 0) return; // Add questions.length check
       
       setLoading(true);
       setError(null);
       
       try {
+        console.log("Fetching questions for step:", step);
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
         
@@ -155,15 +199,19 @@ export default function SessionPlanningWizard({
           credentials: 'include'
         });
         
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        if (response.ok && data.success) {
+        if (data.success) {
           setQuestions(data.questions || []);
           if (data.coachPersonality) {
             setCoachPersonality(data.coachPersonality);
           }
         } else {
-          setError(data.error || 'Failed to load questions');
+          throw new Error(data.error || 'Failed to load questions');
         }
       } catch (error) {
         console.error('Error fetching questions:', error);
@@ -172,6 +220,7 @@ export default function SessionPlanningWizard({
         setLoading(false);
       }
     };
+  
     
     fetchQuestions();
   }, [step, spiciness, duration, selectedScenario, planId, isPartner, answers, loading, supabase]);
