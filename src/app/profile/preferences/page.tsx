@@ -8,19 +8,38 @@ import { z } from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSupabaseClient } from '@/lib/hooks/useSupabaseClient';
 
-// Basic preference schema
+// Updated preference schema for 20 questions
 const preferenceSchema = z.object({
   comfortLevel: z.string().min(1, 'Please select your comfort level'),
-  communicationPreference: z.string().min(1, 'Please select your communication preference'),
+  communicationStyle: z.string().min(1, 'Please select your communication style'),
+  expressionPreference: z.string().min(1, 'Please select how you express desires'),
+  preferredTime: z.string().min(1, 'Please select your preferred time'),
   idealFrequency: z.string().min(1, 'Please select your ideal frequency'),
+  specialOccasions: z.string().optional(),
+  touchPreference: z.string().min(1, 'Please select your touch preference'),
+  favoriteAreas: z.array(z.string()).min(1, 'Please select at least one area'),
+  noTouchAreas: z.string().optional(),
+  emotionalImportance: z.string().min(1, 'Please select importance level'),
+  emotionalNeed: z.string().min(1, 'Please select your need level'),
+  emotionalConnection: z.array(z.string()).min(1, 'Please select at least one option'),
+  explorationOpenness: z.string().min(1, 'Please select your openness level'),
+  dominanceSubmissionComfort: z.string().min(1, 'Please select your comfort level with dominance/submission'),
+  dominanceSubmission: z.string().min(1, 'Please select your preference for dominance/submission'),
+  hardLimits: z.string().optional(),
+  newIdeas: z.string().optional(),
+  giveFeedback: z.string().min(1, 'Please select how you give feedback'),
+  receiveFeedback: z.string().min(1, 'Please select how you receive feedback'),
   intimacyGoals: z.array(z.string()).min(1, 'Please select at least one goal'),
+  fantasies: z.string().optional(),
   additionalNotes: z.string().optional(),
 });
 
 type PreferenceFormData = z.infer<typeof preferenceSchema>;
 
-// Define the intimacy goals options
-const intimacyGoals = [
+// Define options for multi-select questions
+const favoriteAreasOptions = ['Neck', 'Back', 'Arms', 'Legs', 'Feet', 'Other'];
+const emotionalConnectionOptions = ['Eye contact', 'Verbal affirmations', 'Physical closeness', 'Shared laughter', 'Other'];
+const intimacyGoalsOptions = [
   'Improve physical connection',
   'Enhance emotional intimacy',
   'Explore new experiences',
@@ -30,6 +49,10 @@ const intimacyGoals = [
   'Develop deeper trust',
   'Better understand partner needs',
 ];
+
+// Define options for dominance/submission
+const comfortOptions = ['very_comfortable', 'somewhat_comfortable', 'neutral', 'somewhat_uncomfortable', 'very_uncomfortable'];
+const dominanceSubmissionOptions = ['dominant', 'submissive', 'switch', 'not_interested', 'prefer_not_to_say'];
 
 export default function PreferencesPage() {
   const { user } = useAuth();
@@ -48,39 +71,42 @@ export default function PreferencesPage() {
   } = useForm<PreferenceFormData>({
     resolver: zodResolver(preferenceSchema),
     defaultValues: {
+      favoriteAreas: [],
+      emotionalConnection: [],
       intimacyGoals: [],
     },
   });
 
   useEffect(() => {
     const fetchPreferences = async () => {
-      if (!user) return;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const { data, error } = await supabase
           .from('preferences')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error) {
-          console.error('Error fetching preferences:', error);
+          setError(`Failed to load preferences: ${error.message}`);
           return;
         }
 
         if (data) {
           setExistingPreferences(data);
-          
-          // Set form values from existing preferences
-          const preferences = data.preference_data;
-          setValue('comfortLevel', preferences.comfortLevel || '');
-          setValue('communicationPreference', preferences.communicationPreference || '');
-          setValue('idealFrequency', preferences.idealFrequency || '');
-          setValue('intimacyGoals', preferences.intimacyGoals || []);
-          setValue('additionalNotes', preferences.additionalNotes || '');
+          const preferences = data.preference_data || {};
+          if (typeof preferences === 'object') {
+            Object.entries(preferences).forEach(([key, value]) => {
+              if (value) setValue(key as keyof PreferenceFormData, value as any);
+            });
+          }
         }
       } catch (err) {
-        console.error('Error fetching preferences:', err);
+        setError('Failed to load preferences. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -91,13 +117,12 @@ export default function PreferencesPage() {
 
   const onSubmit = async (data: PreferenceFormData) => {
     if (!user) return;
-    
+
     setIsSubmitting(true);
     setError(null);
 
     try {
       if (existingPreferences) {
-        // Update existing preferences
         const { error } = await supabase
           .from('preferences')
           .update({
@@ -108,7 +133,6 @@ export default function PreferencesPage() {
 
         if (error) throw error;
       } else {
-        // Insert new preferences
         const { error } = await supabase
           .from('preferences')
           .insert({
@@ -120,8 +144,8 @@ export default function PreferencesPage() {
       }
 
       router.push('/profile');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while saving preferences');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while saving preferences');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,7 +165,7 @@ export default function PreferencesPage() {
         <header className="py-6 border-b border-foreground/10 mb-8">
           <h1 className="text-2xl font-bold">Your Preferences</h1>
           <p className="text-foreground/70">
-            Help us understand what you're looking for in your intimate experiences
+            Help us understand your preferences for intimate experiences
           </p>
         </header>
 
@@ -152,109 +176,333 @@ export default function PreferencesPage() {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          <div>
-            <label className="block text-lg font-medium mb-4">
-              What's your current comfort level with discussing intimacy?
+          <div className="space-y-6">
+            {/* Comfort and Communication */}
+            <label className="block">
+              <span className="text-foreground font-medium">1. How comfortable are you discussing intimate desires with your partner?</span>
+              <select
+                {...register('comfortLevel')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="1">1 - Very uncomfortable</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5 - Very comfortable</option>
+              </select>
+              {errors.comfortLevel && <p className="mt-1 text-red-500 text-sm">{errors.comfortLevel.message}</p>}
             </label>
-            <div className="space-y-2">
-              {['Very comfortable', 'Somewhat comfortable', 'Neutral', 'Somewhat uncomfortable', 'Very uncomfortable'].map((level) => (
-                <div key={level} className="flex items-center">
-                  <input
-                    type="radio"
-                    id={`comfort-${level}`}
-                    value={level}
-                    {...register('comfortLevel')}
-                    className="mr-2 h-4 w-4"
-                  />
-                  <label htmlFor={`comfort-${level}`}>{level}</label>
-                </div>
-              ))}
-            </div>
-            {errors.comfortLevel && (
-              <p className="mt-1 text-sm text-red-600">{errors.comfortLevel.message}</p>
-            )}
-          </div>
 
-          <div>
-            <label className="block text-lg font-medium mb-4">
-              How do you prefer to communicate about intimate topics?
+            <label className="block">
+              <span className="text-foreground font-medium">2. When talking about intimacy, do you prefer:</span>
+              <select
+                {...register('communicationStyle')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="direct">Direct, explicit language</option>
+                <option value="subtle">Subtle hints and suggestions</option>
+                <option value="mixed">A mix of both depending on the situation</option>
+              </select>
+              {errors.communicationStyle && <p className="mt-1 text-red-500 text-sm">{errors.communicationStyle.message}</p>}
             </label>
-            <div className="space-y-2">
-              {['Direct conversation', 'Hints and subtle cues', 'Written messages', 'Through shared activities', 'With humor and playfulness'].map((pref) => (
-                <div key={pref} className="flex items-center">
-                  <input
-                    type="radio"
-                    id={`communication-${pref}`}
-                    value={pref}
-                    {...register('communicationPreference')}
-                    className="mr-2 h-4 w-4"
-                  />
-                  <label htmlFor={`communication-${pref}`}>{pref}</label>
-                </div>
-              ))}
-            </div>
-            {errors.communicationPreference && (
-              <p className="mt-1 text-sm text-red-600">{errors.communicationPreference.message}</p>
-            )}
-          </div>
 
-          <div>
-            <label className="block text-lg font-medium mb-4">
-              What's your ideal frequency for intimate moments?
+            <label className="block">
+              <span className="text-foreground font-medium">3. How do you typically express your desires?</span>
+              <select
+                {...register('expressionPreference')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="verbally">Verbally</option>
+                <option value="actions">Through actions</option>
+                <option value="both">Both</option>
+              </select>
+              {errors.expressionPreference && <p className="mt-1 text-red-500 text-sm">{errors.expressionPreference.message}</p>}
             </label>
-            <div className="space-y-2">
-              {['Multiple times daily', 'Daily', 'Several times a week', 'Weekly', 'A few times a month', 'Monthly', 'Less frequently'].map((freq) => (
-                <div key={freq} className="flex items-center">
-                  <input
-                    type="radio"
-                    id={`frequency-${freq}`}
-                    value={freq}
-                    {...register('idealFrequency')}
-                    className="mr-2 h-4 w-4"
-                  />
-                  <label htmlFor={`frequency-${freq}`}>{freq}</label>
-                </div>
-              ))}
-            </div>
-            {errors.idealFrequency && (
-              <p className="mt-1 text-sm text-red-600">{errors.idealFrequency.message}</p>
-            )}
-          </div>
 
-          <div>
-            <label className="block text-lg font-medium mb-4">
-              What are your goals for enhancing intimacy? (Select all that apply)
+            {/* Frequency and Timing */}
+            <label className="block">
+              <span className="text-foreground font-medium">4. What time of day do you feel most interested in intimacy?</span>
+              <select
+                {...register('preferredTime')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="late_night">Late night</option>
+                <option value="no_preference">No specific preference</option>
+              </select>
+              {errors.preferredTime && <p className="mt-1 text-red-500 text-sm">{errors.preferredTime.message}</p>}
             </label>
-            <div className="space-y-2">
-              {intimacyGoals.map((goal) => (
-                <div key={goal} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id={`goal-${goal}`}
-                    value={goal}
-                    {...register('intimacyGoals')}
-                    className="mr-2 h-4 w-4"
-                  />
-                  <label htmlFor={`goal-${goal}`}>{goal}</label>
-                </div>
-              ))}
-            </div>
-            {errors.intimacyGoals && (
-              <p className="mt-1 text-sm text-red-600">{errors.intimacyGoals.message}</p>
-            )}
-          </div>
 
-          <div>
-            <label htmlFor="additionalNotes" className="block text-lg font-medium mb-4">
-              Any additional notes or concerns?
+            <label className="block">
+              <span className="text-foreground font-medium">5. How often would you ideally like intimate moments?</span>
+              <select
+                {...register('idealFrequency')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="daily">Daily</option>
+                <option value="several_times_week">Several times a week</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Every other week</option>
+                <option value="monthly">Monthly</option>
+                <option value="less_often">Less often</option>
+              </select>
+              {errors.idealFrequency && <p className="mt-1 text-red-500 text-sm">{errors.idealFrequency.message}</p>}
             </label>
-            <textarea
-              id="additionalNotes"
-              {...register('additionalNotes')}
-              rows={4}
-              className="w-full p-2 border border-foreground/20 rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-foreground/30"
-              placeholder="Share any additional thoughts, boundaries, or ideas..."
-            ></textarea>
+
+            <label className="block">
+              <span className="text-foreground font-medium">6. Are there specific days or occasions when you enjoy intimacy? (e.g., weekends, date nights)</span>
+              <textarea
+                {...register('specialOccasions')}
+                rows={2}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+                placeholder="Optional: Add details here..."
+              />
+            </label>
+
+            {/* Physical Preferences */}
+            <label className="block">
+              <span className="text-foreground font-medium">7. What types of touch do you find most arousing?</span>
+              <select
+                {...register('touchPreference')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="light">Light, teasing touches</option>
+                <option value="firm">Firm, confident touches</option>
+                <option value="combination">A combination of both</option>
+                <option value="other">Other (specify in notes)</option>
+              </select>
+              {errors.touchPreference && <p className="mt-1 text-red-500 text-sm">{errors.touchPreference.message}</p>}
+            </label>
+
+            <div className="block">
+              <span className="text-foreground font-medium">8. Where do you especially enjoy being touched?</span>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {favoriteAreasOptions.map((area) => (
+                  <label key={area} className="flex items-start space-x-2">
+                    <input
+                      type="checkbox"
+                      value={area}
+                      {...register('favoriteAreas')}
+                      className="mt-0.5"
+                    />
+                    <span>{area}</span>
+                  </label>
+                ))}
+              </div>
+              {errors.favoriteAreas && <p className="mt-1 text-red-500 text-sm">{errors.favoriteAreas.message}</p>}
+            </div>
+
+            <label className="block">
+              <span className="text-foreground font-medium">9. Are there areas you prefer not to be touched?</span>
+              <textarea
+                {...register('noTouchAreas')}
+                rows={2}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+                placeholder="Optional: Specify any boundaries..."
+              />
+            </label>
+
+            {/* Emotional Connection */}
+            <label className="block">
+              <span className="text-foreground font-medium">10. How important is emotional connection during intimacy?</span>
+              <select
+                {...register('emotionalImportance')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="extremely">Extremely important</option>
+                <option value="very">Very important</option>
+                <option value="somewhat">Somewhat important</option>
+                <option value="not_very">Not very important</option>
+                <option value="not_at_all">Not important at all</option>
+              </select>
+              {errors.emotionalImportance && <p className="mt-1 text-red-500 text-sm">{errors.emotionalImportance.message}</p>}
+            </label>
+
+            <label className="block">
+              <span className="text-foreground font-medium">11. Do you need emotional connection to enjoy physical intimacy?</span>
+              <select
+                {...register('emotionalNeed')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="always">Always</option>
+                <option value="usually">Usually</option>
+                <option value="sometimes">Sometimes</option>
+                <option value="rarely">Rarely</option>
+                <option value="never">Never</option>
+              </select>
+              {errors.emotionalNeed && <p className="mt-1 text-red-500 text-sm">{errors.emotionalNeed.message}</p>}
+            </label>
+
+            <div className="block">
+              <span className="text-foreground font-medium">12. What helps you feel emotionally connected?</span>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {emotionalConnectionOptions.map((option) => (
+                  <label key={option} className="flex items-start space-x-2">
+                    <input
+                      type="checkbox"
+                      value={option}
+                      {...register('emotionalConnection')}
+                      className="mt-0.5"
+                    />
+                    <span>{option}</span>
+                  </label>
+                ))}
+              </div>
+              {errors.emotionalConnection && <p className="mt-1 text-red-500 text-sm">{errors.emotionalConnection.message}</p>}
+            </div>
+
+            {/* Exploration and Boundaries */}
+            <label className="block">
+              <span className="text-foreground font-medium">13. Are you open to trying new things in intimacy?</span>
+              <select
+                {...register('explorationOpenness')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="very_open">Very open</option>
+                <option value="somewhat_open">Somewhat open</option>
+                <option value="neutral">Neutral</option>
+                <option value="somewhat_hesitant">Somewhat hesitant</option>
+                <option value="not_open">Not open at all</option>
+              </select>
+              {errors.explorationOpenness && <p className="mt-1 text-red-500 text-sm">{errors.explorationOpenness.message}</p>}
+            </label>
+
+            {/* New question about comfort with dominance/submission */}
+            <label className="block">
+              <span className="text-foreground font-medium">14. How comfortable are you discussing dominance and submission dynamics?</span>
+              <select
+                {...register('dominanceSubmissionComfort')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Please select</option>
+                <option value="very_comfortable">Very comfortable</option>
+                <option value="somewhat_comfortable">Somewhat comfortable</option>
+                <option value="neutral">Neutral</option>
+                <option value="somewhat_uncomfortable">Somewhat uncomfortable</option>
+                <option value="very_uncomfortable">Very uncomfortable</option>
+              </select>
+              {errors.dominanceSubmissionComfort && (
+                <p className="mt-1 text-red-500 text-sm">{errors.dominanceSubmissionComfort?.message?.toString()}</p>
+              )}
+            </label>
+
+            {/* New question about dominance/submission preference */}
+            <label className="block">
+              <span className="text-foreground font-medium">15. In intimate settings, what role do you prefer regarding dominance and submission?</span>
+              <select
+                {...register('dominanceSubmission')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Please select</option>
+                <option value="dominant">Dominant - I prefer to take control</option>
+                <option value="submissive">Submissive - I prefer to follow my partner's lead</option>
+                <option value="switch">Switch - I enjoy both roles</option>
+                <option value="not_interested">Not interested in dominance/submission dynamics</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
+              </select>
+              {errors.dominanceSubmission && <p className="mt-1 text-red-500 text-sm">{errors.dominanceSubmission?.message?.toString()}</p>}
+            </label>
+
+            <label className="block">
+              <span className="text-foreground font-medium">16. What are your hard limits or things you don't want to try?</span>
+              <textarea
+                {...register('hardLimits')}
+                rows={2}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+                placeholder="Optional: Be specific..."
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-foreground font-medium">17. Anything you've always wanted to try but haven't yet?</span>
+              <textarea
+                {...register('newIdeas')}
+                rows={2}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+                placeholder="Optional: Share your ideas..."
+              />
+            </label>
+
+            {/* Feedback and Improvement */}
+            <label className="block">
+              <span className="text-foreground font-medium">18. How do you prefer to give feedback about intimate experiences?</span>
+              <select
+                {...register('giveFeedback')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="immediately">Immediately after</option>
+                <option value="later">Later, in a separate conversation</option>
+                <option value="app">Through the app</option>
+                <option value="no_feedback">I prefer not to give feedback</option>
+              </select>
+              {errors.giveFeedback && <p className="mt-1 text-red-500 text-sm">{errors.giveFeedback.message}</p>}
+            </label>
+
+            <label className="block">
+              <span className="text-foreground font-medium">19. How do you prefer to receive feedback?</span>
+              <select
+                {...register('receiveFeedback')}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+              >
+                <option value="">Select an option</option>
+                <option value="direct">Direct and straightforward</option>
+                <option value="gentle">Gently and with suggestions</option>
+                <option value="actions">Through actions rather than words</option>
+                <option value="no_feedback">I prefer not to receive feedback</option>
+              </select>
+              {errors.receiveFeedback && <p className="mt-1 text-red-500 text-sm">{errors.receiveFeedback.message}</p>}
+            </label>
+
+            <div className="block">
+              <span className="text-foreground font-medium">20. What are your goals for enhancing intimacy?</span>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                {intimacyGoalsOptions.map((goal) => (
+                  <label key={goal} className="flex items-start space-x-2">
+                    <input
+                      type="checkbox"
+                      value={goal}
+                      {...register('intimacyGoals')}
+                      className="mt-0.5"
+                    />
+                    <span>{goal}</span>
+                  </label>
+                ))}
+              </div>
+              {errors.intimacyGoals && <p className="mt-1 text-red-500 text-sm">{errors.intimacyGoals.message}</p>}
+            </div>
+
+            {/* Additional Questions */}
+            <label className="block">
+              <span className="text-foreground font-medium">21. Any specific fantasies or scenarios you'd like to explore?</span>
+              <textarea
+                {...register('fantasies')}
+                rows={3}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+                placeholder="Optional: Share your thoughts..."
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-foreground font-medium">22. Anything else you'd like your partner or the AI to know?</span>
+              <textarea
+                {...register('additionalNotes')}
+                rows={3}
+                className="mt-1 block w-full p-2 border border-foreground/20 rounded-md bg-background"
+                placeholder="Optional: Add any details..."
+              />
+            </label>
           </div>
 
           <div className="flex justify-between pt-6 border-t border-foreground/10">

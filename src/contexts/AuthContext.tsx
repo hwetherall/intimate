@@ -113,21 +113,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    console.log("Signing in:", email);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  // Add this to your signIn function in AuthContext.tsx
+const signIn = async (email: string, password: string) => {
+  console.log("Signing in:", email);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  
+  if (error) {
+    console.error("Sign in error:", error);
+  } else {
+    console.log("Sign in successful");
+    console.log("Session data:", data.session);
     
-    if (error) {
-      console.error("Sign in error:", error);
-    } else {
-      console.log("Sign in successful");
-    }
-    
-    return { error: error as AuthError | null };
-  };
+    // Test if we can access the preferences table
+    const { data: prefTest, error: prefError } = await supabase
+      .from('preferences')
+      .select('count')
+      .limit(1);
+      
+    console.log("Preferences test:", prefTest, prefError);
+  }
+  
+  return { error: error as AuthError | null };
+};
 
   const signUp = async (email: string, password: string, fullName: string) => {
     console.log("Signing up:", email);

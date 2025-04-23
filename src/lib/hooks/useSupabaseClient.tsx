@@ -1,3 +1,4 @@
+// src/lib/hooks/useSupabaseClient.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,43 +10,41 @@ export function useSupabaseClient(): SupabaseClient {
   const [client, setClient] = useState<SupabaseClient>(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    return createClient(supabaseUrl, supabaseKey);
+    
+    // Log the configuration to help with debugging
+    console.log(`Creating Supabase client with URL: ${supabaseUrl.substring(0, 15)}...`);
+    console.log(`API key set: ${!!supabaseKey}`);
+    
+    return createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true
+      }
+    });
   });
 
+  // Test the connection when the component mounts
   useEffect(() => {
-    const setupAuthenticatedClient = async () => {
-      if (!user) return;
-
+    const testConnection = async () => {
       try {
-        // Get the token from localStorage
-        const tokenString = localStorage.getItem('supabase-auth-token');
-        if (!tokenString) return;
-
-        const token = JSON.parse(tokenString);
-        const accessToken = token?.access_token;
-        
-        if (!accessToken) return;
-
-        // Create a new client with the token
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-        
-        const newClient = createClient(supabaseUrl, supabaseKey, {
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`
-            }
-          }
-        });
-        
-        setClient(newClient);
+        // Simple test query to see if we can connect
+        const { data, error } = await client
+          .from('users')
+          .select('count')
+          .limit(1);
+          
+        if (error) {
+          console.error('Supabase test query failed:', error);
+        } else {
+          console.log('Supabase connection test successful');
+        }
       } catch (err) {
-        console.error('Error setting up authenticated Supabase client:', err);
+        console.error('Supabase connection test error:', err);
       }
     };
-
-    setupAuthenticatedClient();
-  }, [user]);
+    
+    testConnection();
+  }, [client]);
 
   return client;
-} 
+}
