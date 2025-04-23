@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { createBrowserClient } from '@/lib/supabase';
 import ScenarioSelector from './ScenarioSelector';
@@ -50,6 +50,7 @@ export default function SessionPlanningWizard({
   onPlanCreated
 }: WizardProps) {
   const { user } = useAuth();
+  const supabase = useMemo(() => createBrowserClient(), []);
   const [step, setStep] = useState(isPartner ? 3 : 0);
   const [spiciness, setSpiciness] = useState(initialSpiciness || '');
   const [duration, setDuration] = useState(initialDuration || '');
@@ -73,7 +74,6 @@ export default function SessionPlanningWizard({
       setError(null);
       
       try {
-        const supabase = createBrowserClient();
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
         
@@ -117,7 +117,7 @@ export default function SessionPlanningWizard({
     };
     
     fetchScenarios();
-  }, [spiciness, step]);
+  }, [spiciness, step, supabase]);
 
   // Fetch questions when needed
   useEffect(() => {
@@ -128,7 +128,6 @@ export default function SessionPlanningWizard({
       setError(null);
       
       try {
-        const supabase = createBrowserClient();
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
         
@@ -175,7 +174,7 @@ export default function SessionPlanningWizard({
     };
     
     fetchQuestions();
-  }, [step, spiciness, duration, selectedScenario, planId, isPartner, answers, loading]);
+  }, [step, spiciness, duration, selectedScenario, planId, isPartner, answers, loading, supabase]);
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({
@@ -189,7 +188,6 @@ export default function SessionPlanningWizard({
     setError(null);
     
     try {
-      const supabase = createBrowserClient();
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       
@@ -237,7 +235,6 @@ export default function SessionPlanningWizard({
     setError(null);
     
     try {
-      const supabase = createBrowserClient();
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       

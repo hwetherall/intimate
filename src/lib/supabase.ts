@@ -1,11 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Singleton pattern for Supabase client
+let browserClient: ReturnType<typeof createClient> | null = null;
+
 // Function for client-side usage only
 export function createBrowserClient() {
+  if (browserClient) return browserClient;
+  
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   
-  return createClient(supabaseUrl, supabaseKey, {
+  browserClient = createClient(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -23,4 +28,6 @@ export function createBrowserClient() {
       }
     }
   });
+  
+  return browserClient;
 }

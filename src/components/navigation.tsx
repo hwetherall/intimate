@@ -45,12 +45,12 @@ export default function Navigation() {
                   Preferences
                 </Link>
                 <Link
-                  href="/recommendations"
+                  href="/session-plan"
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
-                    isActive('/recommendations') ? 'bg-foreground/10' : 'hover:bg-foreground/5'
+                    isActive('/session-plan') ? 'bg-foreground/10' : 'hover:bg-foreground/5'
                   }`}
                 >
-                  Recommendations
+                  Session Planning
                 </Link>
                 <button
                   onClick={() => signOut()}
@@ -149,13 +149,13 @@ export default function Navigation() {
                   Preferences
                 </Link>
                 <Link
-                  href="/recommendations"
+                  href="/session-plan"
                   className={`block px-3 py-2 rounded-md text-base font-medium ${
-                    isActive('/recommendations') ? 'bg-foreground/10' : 'hover:bg-foreground/5'
+                    isActive('/session-plan') ? 'bg-foreground/10' : 'hover:bg-foreground/5'
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Recommendations
+                  Session Planning
                 </Link>
                 <button
                   onClick={() => {

@@ -22,8 +22,7 @@ export default function AskAdviceForm() {
     
     try {
       // Get fresh token
-      const supabase = createBrowserClient();
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await createBrowserClient().auth.getSession();
       const token = sessionData.session?.access_token;
       
       if (!token) {
